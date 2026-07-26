@@ -214,6 +214,37 @@ final class PestTestGeneratorTest extends TestCase
     }
 
     #[Test]
+    public function output_omits_an_unsafe_behavior_test_for_store_relations(): void
+    {
+        $path = 'tests/Feature/Http/Controllers/Api/OrderControllerTest.php';
+
+        $this->filesystem->expects('stub')
+            ->with('pest.test.class.stub')
+            ->andReturn($this->stub('pest.test.class.stub'));
+        $this->filesystem->expects('stub')
+            ->with('pest.test.case.stub')
+            ->andReturn($this->stub('pest.test.case.stub'));
+        $this->filesystem->expects('exists')
+            ->with(dirname($path))
+            ->andReturnTrue();
+        $this->filesystem->shouldReceive('exists')
+            ->with(base_path('tests/TestCase.php'))
+            ->andReturnFalse();
+        $this->filesystem->expects('put')
+            ->withArgs(function ($actualPath, $contents) use ($path) {
+                $this->assertSame($path, $actualPath);
+                $this->assertStringContainsString("test('store uses form request validation')", $contents);
+                $this->assertStringNotContainsString("test('store behaves as expected'", $contents);
+
+                return true;
+            });
+
+        $tokens = $this->blueprint->parse($this->fixture('drafts/api-resource-relations.yaml'));
+        unset($tokens['controllers']['Api/Item']);
+        $this->subject->output($this->blueprint->analyze($tokens));
+    }
+
+    #[Test]
     public function output_imports_additional_assertions_to_base_test(): void
     {
         $definition = 'drafts/api-resource-nested.yaml';

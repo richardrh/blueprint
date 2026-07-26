@@ -192,8 +192,12 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
                 } elseif ($statement instanceof SessionStatement) {
                     $body .= self::INDENT . $statement->output() . PHP_EOL;
                 } elseif ($statement instanceof EloquentStatement) {
-                    $body .= self::INDENT . $statement->output($controller->prefix(), $name, $using_validation) . PHP_EOL;
-                    $this->addImport($controller, $this->determineModel($controller, $statement->reference()));
+                    if ($name === 'store' && $statement->operation() === 'save' && $controller->storeRelations()) {
+                        $body .= $this->buildAggregateStore($controller);
+                    } else {
+                        $body .= self::INDENT . $statement->output($controller->prefix(), $name, $using_validation) . PHP_EOL;
+                        $this->addImport($controller, $this->determineModel($controller, $statement->reference()));
+                    }
                 } elseif ($statement instanceof QueryStatement) {
                     $body .= self::INDENT . $statement->output($controller->prefix()) . PHP_EOL;
                     $this->addImport($controller, $this->determineModel($controller, $statement->model()));
@@ -239,6 +243,78 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
         }
 
         return trim($methods);
+    }
+
+    private function buildAggregateStore(Controller $controller): string
+    {
+        $model = $this->tree->modelForContext(Str::singular($controller->prefix()), true);
+        $variable = Str::camel($model->name());
+        $indent = '    ';
+        $lines = [
+            '$' . $variable . ' = DB::transaction(function () use ($request) {',
+            $indent . '$' . $variable . ' = ' . $this->createRootStatement($controller, $model->name(), $this->writableColumns($model, $controller->model())) . ';',
+        ];
+
+        foreach ($controller->storeRelations() as $relation) {
+            $related = $this->resolveRelation($model, $relation);
+            $columns = $this->writableColumns($related, $model->name());
+            $lines[] = '';
+            $lines[] = $indent . '$' . $variable . '->' . $relation . '()->createMany(array_map(fn (array $' . Str::singular($relation) . ') => Arr::only($' . Str::singular($relation) . ', [' . $this->quoted($columns) . ']), $request->validated(' . "'{$relation}'" . ')));';
+        }
+
+        $lines[] = '';
+        $lines[] = $indent . '$' . $variable . '->load([' . $this->quoted($controller->storeRelations()) . ']);';
+
+        $lines[] = '';
+        $lines[] = $indent . 'return $' . $variable . ';';
+        $lines[] = '});';
+
+        $this->addImport($controller, $model->fullyQualifiedClassName());
+        $this->addImport($controller, 'Illuminate\Support\Arr');
+        $this->addImport($controller, 'Illuminate\Support\Facades\DB');
+
+        $uses = '$request' . ($controller->model() ? ', $' . Str::camel($controller->model()) : '');
+        $lines[0] = '$' . $variable . ' = DB::transaction(function () use (' . $uses . ') {';
+
+        return str_replace(
+            PHP_EOL . self::INDENT . PHP_EOL,
+            PHP_EOL . PHP_EOL,
+            self::INDENT . implode(PHP_EOL . self::INDENT, $lines) . PHP_EOL
+        );
+    }
+
+    private function resolveRelation($model, string $relation)
+    {
+        foreach ($model->relationships()['hasMany'] ?? [] as $reference) {
+            $context = Str::before($reference, ':');
+            $method = Str::camel(Str::plural($context));
+            if ($method === $relation) {
+                return $this->tree->modelForContext($context, true);
+            }
+        }
+
+        throw new \InvalidArgumentException("The store relation [{$relation}] must be a declared hasMany relationship.");
+    }
+
+    private function writableColumns($model, ?string $parent = null): array
+    {
+        return array_keys(array_filter($model->columns(), fn ($column) => $column->name() !== 'id' && $column->name() !== Str::snake($parent) . '_id'));
+    }
+
+    private function createRootStatement(Controller $controller, string $model, array $columns): string
+    {
+        $values = '$request->safe()->only([' . $this->quoted($columns) . '])';
+
+        if (!$controller->model()) {
+            return $model . '::create(' . $values . ')';
+        }
+
+        return '$' . Str::camel($controller->model()) . '->' . Str::plural(Str::camel($controller->prefix())) . '()->create(' . $values . ')';
+    }
+
+    private function quoted(array $values): string
+    {
+        return implode(', ', array_map(fn ($value) => "'{$value}'", $values));
     }
 
     private function fullyQualifyModelReference(string $sub_namespace, string $model_name): string

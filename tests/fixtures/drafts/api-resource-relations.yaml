@@ -1,0 +1,20 @@
+models:
+  Order:
+    reference: string
+    relationships:
+      hasMany: Item
+  Item:
+    product_id: id
+    quantity: unsignedInteger
+    relationships:
+      belongsTo: Order
+controllers:
+  Api/Order:
+    resource: api
+    meta:
+      store:
+        relations: items
+  Api/Item:
+    resource: api
+    meta:
+      parent: order

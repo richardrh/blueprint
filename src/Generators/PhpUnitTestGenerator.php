@@ -100,6 +100,7 @@ class PhpUnitTestGenerator extends AbstractClassGenerator implements Generator
             $request_data = [];
             $model_columns = [];
             $tested_bits = 0;
+            $skip_behavior_test = $name === 'store' && $controller->storeRelations();
 
             $model = $controller->prefix();
             $context = Str::singular($controller->prefix());
@@ -483,6 +484,12 @@ class PhpUnitTestGenerator extends AbstractClassGenerator implements Generator
 
                     $this->addImport($controller, $modelNamespace . '\\' . $this->determineModel($controller->prefix(), $statement->model()));
                 }
+            }
+
+            if ($skip_behavior_test) {
+                $test_cases .= PHP_EOL . str_replace($template, '', $test_case) . PHP_EOL;
+
+                continue;
             }
 
             $call = sprintf(
