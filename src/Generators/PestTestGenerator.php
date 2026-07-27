@@ -101,7 +101,7 @@ class PestTestGenerator extends AbstractClassGenerator implements Generator
             $request_data = [];
             $model_columns = [];
             $tested_bits = 0;
-            $skip_behavior_test = $name === 'store' && $controller->storeRelations();
+            $skip_behavior_test = $name === 'store' && $controller->relations('store');
 
             $model = $controller->prefix();
             $context = Str::singular($controller->prefix());

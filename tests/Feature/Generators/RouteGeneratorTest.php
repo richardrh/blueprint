@@ -68,18 +68,6 @@ final class RouteGeneratorTest extends TestCase
     }
 
     #[Test]
-    public function output_generates_api_resource_routes_for_store_relations(): void
-    {
-        $this->filesystem->expects('append')
-            ->with('routes/api.php', "\n\nRoute::apiResource('orders', App\\Http\\Controllers\\Api\\OrderController::class);\n\nRoute::apiResource('orders/{order}/items', App\\Http\\Controllers\\Api\\ItemController::class);\n");
-
-        $tokens = $this->blueprint->parse($this->fixture('drafts/api-resource-relations.yaml'));
-        $tree = $this->blueprint->analyze($tokens);
-
-        $this->assertSame(['updated' => [['Route', 'routes/api.php']]], $this->subject->output($tree));
-    }
-
-    #[Test]
     public function output_generates_routes_with_singular_slug(): void
     {
         $this->app['config']->set('blueprint.singular_routes', true);

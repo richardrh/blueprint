@@ -39,6 +39,8 @@ class OrderController extends Controller
 
     public function show(Request $request, Order $order): OrderResource
     {
+        $order->load(['items']);
+
         return new OrderResource($order);
     }
 

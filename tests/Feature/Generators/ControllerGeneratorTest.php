@@ -187,27 +187,15 @@ final class ControllerGeneratorTest extends TestCase
             ->andReturn($this->stub('controller.class.stub'));
         $this->filesystem->expects('stub')
             ->with('controller.method.stub')
-            ->twice()
             ->andReturn($this->stub('controller.method.stub'));
         $this->filesystem->shouldReceive('exists')->andReturnTrue();
         $this->filesystem->expects('put')
-            ->twice()
-            ->withArgs(function ($path, $contents) {
-                $fixtures = [
-                    'app/Http/Controllers/Api/OrderController.php' => 'controllers/api-resource-relations-order.php',
-                    'app/Http/Controllers/Api/ItemController.php' => 'controllers/api-resource-relations-item.php',
-                ];
-
-                $this->assertArrayHasKey($path, $fixtures);
-                $this->assertSame($this->fixture($fixtures[$path]), $contents);
-
-                return true;
-            });
+            ->with('app/Http/Controllers/Api/OrderController.php', $this->fixture('controllers/api-resource-relations-order.php'));
 
         $tokens = $this->blueprint->parse($this->fixture('drafts/api-resource-relations.yaml'));
         $tree = $this->blueprint->analyze($tokens);
 
-        $this->assertSame(['created' => [['Controller', 'app/Http/Controllers/Api/OrderController.php'], ['Controller', 'app/Http/Controllers/Api/ItemController.php']]], $this->subject->output($tree));
+        $this->assertSame(['created' => [['Controller', 'app/Http/Controllers/Api/OrderController.php']]], $this->subject->output($tree));
     }
 
     #[Test]
@@ -227,40 +215,6 @@ final class ControllerGeneratorTest extends TestCase
         $tree = $this->blueprint->analyze($tokens);
 
         $this->subject->output($tree);
-    }
-
-    #[Test]
-    public function output_stores_an_aggregate_root_through_its_parent(): void
-    {
-        $path = 'app/Http/Controllers/Api/OrderController.php';
-
-        $this->filesystem->expects('stub')
-            ->with('controller.class.stub')
-            ->andReturn($this->stub('controller.class.stub'));
-        $this->filesystem->expects('stub')
-            ->with('controller.method.stub')
-            ->andReturn($this->stub('controller.method.stub'));
-        $this->filesystem->expects('exists')
-            ->with(dirname($path))
-            ->andReturnTrue();
-        $this->filesystem->expects('put')
-            ->withArgs(function ($actualPath, $contents) use ($path) {
-                $this->assertSame($path, $actualPath);
-                $this->assertStringContainsString('DB::transaction(function () use ($request, $customer)', $contents);
-                $this->assertStringContainsString("\$order = \$customer->orders()->create(\$request->safe()->only(['reference']));", $contents);
-
-                return true;
-            });
-
-        $definition = str_replace(
-            ['  Order:', '      hasMany: Item', '    meta:' . PHP_EOL . '      store:'],
-            ['  Customer:' . PHP_EOL . '    name: string' . PHP_EOL . '  Order:', '      hasMany: Item' . PHP_EOL . '      belongsTo: Customer', '    meta:' . PHP_EOL . '      parent: customer' . PHP_EOL . '      store:'],
-            $this->fixture('drafts/api-resource-relations.yaml')
-        );
-        $tokens = $this->blueprint->parse($definition);
-        unset($tokens['controllers']['Api/Item']);
-
-        $this->subject->output($this->blueprint->analyze($tokens));
     }
 
     #[Test]

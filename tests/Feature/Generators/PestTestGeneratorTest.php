@@ -240,7 +240,6 @@ final class PestTestGeneratorTest extends TestCase
             });
 
         $tokens = $this->blueprint->parse($this->fixture('drafts/api-resource-relations.yaml'));
-        unset($tokens['controllers']['Api/Item']);
         $this->subject->output($this->blueprint->analyze($tokens));
     }
 

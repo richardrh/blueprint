@@ -152,13 +152,6 @@ final class FormRequestGeneratorTest extends TestCase
         $this->filesystem->expects('put')
             ->with('app/Http/Requests/Api/OrderStoreRequest.php', $this->fixture('form-requests/order-store.php'));
 
-        $this->filesystem->expects('exists')
-            ->with('app/Http/Requests/Api/ItemStoreRequest.php')
-            ->andReturnTrue();
-        $this->filesystem->expects('exists')
-            ->with('app/Http/Requests/Api/ItemUpdateRequest.php')
-            ->andReturnTrue();
-
         $tokens = $this->blueprint->parse($this->fixture('drafts/api-resource-relations.yaml'));
         $tree = $this->blueprint->analyze($tokens);
 

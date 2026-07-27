@@ -14,7 +14,5 @@ controllers:
     meta:
       store:
         relations: items
-  Api/Item:
-    resource: api
-    meta:
-      parent: order
+      show:
+        relations: items

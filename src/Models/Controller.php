@@ -26,7 +26,7 @@ class Controller implements BlueprintModel
 
     private ?string $model = null;
 
-    private array $storeRelations = [];
+    private array $relations = [];
 
     public function __construct(string $name)
     {
@@ -122,13 +122,13 @@ class Controller implements BlueprintModel
         return $this->model;
     }
 
-    public function setStoreRelations(array $relations): void
+    public function setRelations(string $action, array $relations): void
     {
-        $this->storeRelations = $relations;
+        $this->relations[$action] = $relations;
     }
 
-    public function storeRelations(): array
+    public function relations(string $action): array
     {
-        return $this->storeRelations;
+        return $this->relations[$action] ?? [];
     }
 }

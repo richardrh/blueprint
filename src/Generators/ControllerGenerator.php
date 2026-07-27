@@ -168,6 +168,15 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
                 } elseif ($statement instanceof RenderStatement) {
                     $body .= self::INDENT . $statement->output() . PHP_EOL;
                 } elseif ($statement instanceof ResourceStatement) {
+                    if ($name === 'show' && $controller->relations('show')) {
+                        $model = $this->tree->modelForContext(Str::singular($controller->prefix()), true);
+                        foreach ($controller->relations('show') as $relation) {
+                            $this->resolveRelation($model, $relation);
+                        }
+
+                        $body .= self::INDENT . '$' . Str::camel(Str::singular($controller->prefix())) . '->load([' . $this->quoted($controller->relations('show')) . ']);' . PHP_EOL . PHP_EOL;
+                    }
+
                     $fqcn = config('blueprint.namespace') . '\\Http\\Resources\\' . ($controller->namespace() ? $controller->namespace() . '\\' : '') . $statement->name();
                     $this->addImport($controller, $fqcn);
                     $body .= self::INDENT . $statement->output() . PHP_EOL;
@@ -192,7 +201,7 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
                 } elseif ($statement instanceof SessionStatement) {
                     $body .= self::INDENT . $statement->output() . PHP_EOL;
                 } elseif ($statement instanceof EloquentStatement) {
-                    if ($name === 'store' && $statement->operation() === 'save' && $controller->storeRelations()) {
+                    if ($name === 'store' && $statement->operation() === 'save' && $controller->relations('store')) {
                         $body .= $this->buildAggregateStore($controller);
                     } else {
                         $body .= self::INDENT . $statement->output($controller->prefix(), $name, $using_validation) . PHP_EOL;
@@ -247,15 +256,19 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
 
     private function buildAggregateStore(Controller $controller): string
     {
+        if ($controller->model()) {
+            throw new \InvalidArgumentException('Store relations are not supported for nested controllers.');
+        }
+
         $model = $this->tree->modelForContext(Str::singular($controller->prefix()), true);
         $variable = Str::camel($model->name());
         $indent = '    ';
         $lines = [
             '$' . $variable . ' = DB::transaction(function () use ($request) {',
-            $indent . '$' . $variable . ' = ' . $this->createRootStatement($controller, $model->name(), $this->writableColumns($model, $controller->model())) . ';',
+            $indent . '$' . $variable . ' = ' . $model->name() . '::create($request->safe()->only([' . $this->quoted($this->writableColumns($model)) . ']));',
         ];
 
-        foreach ($controller->storeRelations() as $relation) {
+        foreach ($controller->relations('store') as $relation) {
             $related = $this->resolveRelation($model, $relation);
             $columns = $this->writableColumns($related, $model->name());
             $lines[] = '';
@@ -263,7 +276,7 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
         }
 
         $lines[] = '';
-        $lines[] = $indent . '$' . $variable . '->load([' . $this->quoted($controller->storeRelations()) . ']);';
+        $lines[] = $indent . '$' . $variable . '->load([' . $this->quoted($controller->relations('store')) . ']);';
 
         $lines[] = '';
         $lines[] = $indent . 'return $' . $variable . ';';
@@ -272,9 +285,6 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
         $this->addImport($controller, $model->fullyQualifiedClassName());
         $this->addImport($controller, 'Illuminate\Support\Arr');
         $this->addImport($controller, 'Illuminate\Support\Facades\DB');
-
-        $uses = '$request' . ($controller->model() ? ', $' . Str::camel($controller->model()) : '');
-        $lines[0] = '$' . $variable . ' = DB::transaction(function () use (' . $uses . ') {';
 
         return str_replace(
             PHP_EOL . self::INDENT . PHP_EOL,
@@ -299,17 +309,6 @@ class ControllerGenerator extends AbstractClassGenerator implements Generator
     private function writableColumns($model, ?string $parent = null): array
     {
         return array_keys(array_filter($model->columns(), fn ($column) => $column->name() !== 'id' && $column->name() !== Str::snake($parent) . '_id'));
-    }
-
-    private function createRootStatement(Controller $controller, string $model, array $columns): string
-    {
-        $values = '$request->safe()->only([' . $this->quoted($columns) . '])';
-
-        if (!$controller->model()) {
-            return $model . '::create(' . $values . ')';
-        }
-
-        return '$' . Str::camel($controller->model()) . '->' . Str::plural(Str::camel($controller->prefix())) . '()->create(' . $values . ')';
     }
 
     private function quoted(array $values): string

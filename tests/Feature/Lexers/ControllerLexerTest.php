@@ -107,6 +107,30 @@ final class ControllerLexerTest extends TestCase
     }
 
     #[Test]
+    public function it_stores_action_relations(): void
+    {
+        $this->statementLexer->shouldReceive('analyze')
+            ->with([])
+            ->andReturn([]);
+
+        $actual = $this->subject->analyze([
+            'controllers' => [
+                'Order' => [
+                    'meta' => [
+                        'store' => ['relations' => 'items'],
+                        'show' => ['relations' => 'items, notes'],
+                    ],
+                    'index' => [],
+                ],
+            ],
+        ]);
+
+        $controller = $actual['controllers']['Order'];
+        $this->assertSame(['items'], $controller->relations('store'));
+        $this->assertSame(['items', 'notes'], $controller->relations('show'));
+    }
+
+    #[Test]
     public function it_returns_a_web_resource_controller(): void
     {
         $tokens = [
