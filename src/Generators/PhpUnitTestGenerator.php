@@ -100,7 +100,7 @@ class PhpUnitTestGenerator extends AbstractClassGenerator implements Generator
             $request_data = [];
             $model_columns = [];
             $tested_bits = 0;
-            $skip_behavior_test = $name === 'store' && $controller->relations('store');
+            $skip_behavior_test = $name === 'store' && $controller->storeRelations();
 
             $model = $controller->prefix();
             $context = Str::singular($controller->prefix());

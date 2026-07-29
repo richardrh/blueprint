@@ -73,12 +73,12 @@ class FormRequestGenerator extends AbstractClassGenerator implements Generator
     {
         $output = $this->buildLegacyRules($context, $validateStatement, $controller);
 
-        if (!$isStoreRequest || empty($controller->relations('store'))) {
+        if (!$isStoreRequest || empty($controller->storeRelations())) {
             return $output;
         }
 
         $model = $this->tree->modelForContext($context, true);
-        foreach ($controller->relations('store') as $relation) {
+        foreach ($controller->storeRelations() as $relation) {
             $related = $this->relatedModel($model, $relation);
             $output .= PHP_EOL . self::INDENT . "'{$relation}' => ['required', 'array'],";
 

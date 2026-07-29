@@ -14,5 +14,3 @@ controllers:
     meta:
       store:
         relations: items
-      show:
-        relations: items

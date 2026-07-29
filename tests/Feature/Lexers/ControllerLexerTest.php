@@ -107,7 +107,7 @@ final class ControllerLexerTest extends TestCase
     }
 
     #[Test]
-    public function it_stores_action_relations(): void
+    public function it_stores_store_relations(): void
     {
         $this->statementLexer->shouldReceive('analyze')
             ->with([])
@@ -117,8 +117,7 @@ final class ControllerLexerTest extends TestCase
             'controllers' => [
                 'Order' => [
                     'meta' => [
-                        'store' => ['relations' => 'items'],
-                        'show' => ['relations' => 'items, notes'],
+                        'store' => ['relations' => 'items, notes'],
                     ],
                     'index' => [],
                 ],
@@ -126,8 +125,7 @@ final class ControllerLexerTest extends TestCase
         ]);
 
         $controller = $actual['controllers']['Order'];
-        $this->assertSame(['items'], $controller->relations('store'));
-        $this->assertSame(['items', 'notes'], $controller->relations('show'));
+        $this->assertSame(['items', 'notes'], $controller->storeRelations());
     }
 
     #[Test]
